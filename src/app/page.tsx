@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   LineChart,
   Line,
@@ -19,29 +19,38 @@ import {
   LumpSumRepayment,
 } from "./loanLogic";
 
-const INITIAL_LOAN_BALANCE = 64621.38;
-const STARTING_SALARY = 50000;
-const SALARY_GROWTH_FACTOR = 1.2;
-const REMAINING_YEARS = 30; // User's direct change
+const DEFAULT_INITIAL_LOAN_BALANCE = 64621.38;
+const DEFAULT_STARTING_SALARY = 50000;
+const DEFAULT_SALARY_GROWTH_FACTOR = 1.2;
+const DEFAULT_REMAINING_YEARS = 30;
+const DEFAULT_INTEREST_RATE = 0.07;
 
-const getSalaryForYear = (year: number) => {
+const getSalaryForYear = (year: number, startingSalary: number, growthFactor: number) => {
   if (year === 0) return 0;
   const log2Value = (Math.log(year) / Math.log(2));
-  return Math.round(STARTING_SALARY * Math.pow(SALARY_GROWTH_FACTOR, log2Value));
+  return Math.round(startingSalary * Math.pow(growthFactor, log2Value));
 };
 
-const initialSalaryProjections: SalaryProjection[] = [
-  { year: 1, salary: getSalaryForYear(1) },
-  { year: 2, salary: getSalaryForYear(2) },
-  { year: 4, salary: getSalaryForYear(4) },
-  { year: 8, salary: getSalaryForYear(8) },
-  { year: 16, salary: getSalaryForYear(16) },
-];
-
 export default function Home() {
-  const [salaryProjections, setSalaryProjections] = useState<SalaryProjection[]>(
-    initialSalaryProjections
-  );
+  const [initialBalance, setInitialBalance] = useState(DEFAULT_INITIAL_LOAN_BALANCE);
+  const [startingSalary, setStartingSalary] = useState(DEFAULT_STARTING_SALARY);
+  const [salaryGrowthFactor, setSalaryGrowthFactor] = useState(DEFAULT_SALARY_GROWTH_FACTOR);
+  const [remainingYears, setRemainingYears] = useState(DEFAULT_REMAINING_YEARS);
+  const [interestRate, setInterestRate] = useState(DEFAULT_INTEREST_RATE);
+
+  const [salaryProjections, setSalaryProjections] = useState<SalaryProjection[]>([]);
+
+  useEffect(() => {
+    const projections: SalaryProjection[] = [
+      { year: 1, salary: getSalaryForYear(1, startingSalary, salaryGrowthFactor) },
+      { year: 2, salary: getSalaryForYear(2, startingSalary, salaryGrowthFactor) },
+      { year: 4, salary: getSalaryForYear(4, startingSalary, salaryGrowthFactor) },
+      { year: 8, salary: getSalaryForYear(8, startingSalary, salaryGrowthFactor) },
+      { year: 16, salary: getSalaryForYear(16, startingSalary, salaryGrowthFactor) },
+    ];
+    setSalaryProjections(projections);
+  }, [startingSalary, salaryGrowthFactor]);
+
   const [lumpSumRepayments, setLumpSumRepayments] = useState<LumpSumRepayment[]>(
     []
   );
@@ -51,12 +60,13 @@ export default function Home() {
   const { history, totalRepayments } = useMemo(
     () =>
       calculateLoanRepayments(
-        INITIAL_LOAN_BALANCE,
-        REMAINING_YEARS,
+        initialBalance,
+        remainingYears,
+        interestRate,
         salaryProjections,
         lumpSumRepayments
       ),
-    [salaryProjections, lumpSumRepayments]
+    [initialBalance, remainingYears, interestRate, salaryProjections, lumpSumRepayments]
   );
 
   const handleSalaryChange = (index: number, year: number, salary: number) => {
@@ -75,6 +85,10 @@ export default function Home() {
     }
   };
 
+  const handleRemoveLumpSum = (index: number) => {
+    setLumpSumRepayments(lumpSumRepayments.filter((_, i) => i !== index));
+  };
+
   const chartData = history.map((h) => ({
     time: h.year + h.month / 12,
     balance: h.balance,
@@ -82,7 +96,7 @@ export default function Home() {
   
   const summaryData = useMemo(() => {
     const summary: {year: number, maxMonthlyRepayment: number, endBalance: number, totalPayments: number}[] = [];
-    for (let year = 1; year <= REMAINING_YEARS; year++) {
+    for (let year = 1; year <= remainingYears; year++) {
       const yearHistory = history.filter(h => h.year === year);
       if (yearHistory.length === 0) continue;
 
@@ -98,7 +112,7 @@ export default function Home() {
       });
     }
     return summary;
-  }, [history]);
+  }, [history, remainingYears]);
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-8 bg-gray-50">
@@ -110,23 +124,92 @@ export default function Home() {
         <div className="lg:col-span-1 p-6 bg-white rounded-lg shadow">
           <h2 className="text-2xl font-semibold mb-4">Inputs</h2>
           
-          <h3 className="text-xl font-medium mb-2">Salary Projections</h3>
+          <div className="mb-6 space-y-4">
+            <h3 className="text-xl font-medium mb-2">Global Parameters</h3>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Initial Balance: £{initialBalance.toLocaleString()}</label>
+              <input
+                type="range"
+                min="0"
+                max="150000"
+                step="1000"
+                value={initialBalance}
+                onChange={(e) => setInitialBalance(parseInt(e.target.value))}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Starting Salary: £{startingSalary.toLocaleString()}</label>
+              <input
+                type="range"
+                min="20000"
+                max="150000"
+                step="1000"
+                value={startingSalary}
+                onChange={(e) => setStartingSalary(parseInt(e.target.value))}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Salary Growth Factor: {salaryGrowthFactor}x</label>
+              <input
+                type="range"
+                min="1.0"
+                max="2.0"
+                step="0.01"
+                value={salaryGrowthFactor}
+                onChange={(e) => setSalaryGrowthFactor(parseFloat(e.target.value))}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Interest Rate: {(interestRate * 100).toFixed(1)}%</label>
+              <input
+                type="range"
+                min="0"
+                max="0.15"
+                step="0.001"
+                value={interestRate}
+                onChange={(e) => setInterestRate(parseFloat(e.target.value))}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Remaining Years: {remainingYears}</label>
+              <input
+                type="range"
+                min="1"
+                max="40"
+                step="1"
+                value={remainingYears}
+                onChange={(e) => setRemainingYears(parseInt(e.target.value))}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+              />
+            </div>
+          </div>
+
+          <h3 className="text-xl font-medium mb-2">Manual Salary Projections</h3>
           {salaryProjections.map((p, i) => (
             <div key={i} className="flex items-center gap-2 mb-2">
               <input
                 type="number"
-                value={p.year}
+                value={p.year || ""}
                 onChange={(e) =>
-                  handleSalaryChange(i, parseInt(e.target.value), p.salary)
+                  handleSalaryChange(i, parseInt(e.target.value) || 0, p.salary)
                 }
                 className="w-20 p-2 border rounded"
                 placeholder="Year"
               />
               <input
                 type="number"
-                value={p.salary}
+                value={p.salary || ""}
                 onChange={(e) =>
-                  handleSalaryChange(i, p.year, parseInt(e.target.value))
+                  handleSalaryChange(i, p.year, parseInt(e.target.value) || 0)
                 }
                 className="w-32 p-2 border rounded"
                 placeholder="Salary"
@@ -138,15 +221,15 @@ export default function Home() {
           <div className="flex items-center gap-2">
             <input
               type="number"
-              value={lumpSumYear}
-              onChange={(e) => setLumpSumYear(parseInt(e.target.value))}
+              value={lumpSumYear || ""}
+              onChange={(e) => setLumpSumYear(parseInt(e.target.value) || 0)}
               className="w-20 p-2 border rounded"
               placeholder="Year"
             />
             <input
               type="number"
-              value={lumpSumAmount}
-              onChange={(e) => setLumpSumAmount(parseInt(e.target.value))}
+              value={lumpSumAmount || ""}
+              onChange={(e) => setLumpSumAmount(parseInt(e.target.value) || 0)}
               className="w-32 p-2 border rounded"
               placeholder="Amount"
             />
@@ -157,10 +240,18 @@ export default function Home() {
               Add
             </button>
           </div>
-          <ul className="mt-2">
+          <ul className="mt-4 space-y-2">
             {lumpSumRepayments.map((l, i) => (
-              <li key={i}>
-                Year {l.year}: £{l.amount.toLocaleString()}
+              <li key={i} className="flex justify-between items-center bg-gray-50 p-2 rounded">
+                <span>
+                  Year {l.year}: £{l.amount.toLocaleString()}
+                </span>
+                <button
+                  onClick={() => handleRemoveLumpSum(i)}
+                  className="text-red-500 hover:text-red-700 text-sm font-bold"
+                >
+                  ✕
+                </button>
               </li>
             ))}
           </ul>
@@ -177,14 +268,14 @@ export default function Home() {
               })}
             </span>
           </p>
-          <ResponsiveContainer width="100%" height="400">
+          <ResponsiveContainer width="100%" height={400}>
             <AreaChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis type="number" dataKey="time" name="Year" unit="yr" domain={[0, REMAINING_YEARS]} />
+              <XAxis type="number" dataKey="time" name="Year" unit="yr" domain={[0, remainingYears]} />
               <YAxis
                 tickFormatter={(tick) => `£${(tick / 1000).toFixed(0)}k`}
               />
-              <Tooltip formatter={(value: number) => `£${value.toLocaleString()}`} />
+              <Tooltip formatter={(value: any) => `£${Number(value || 0).toLocaleString()}`} />
               <Legend />
               <Area
                 type="monotone"

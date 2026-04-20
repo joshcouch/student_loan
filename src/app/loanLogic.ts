@@ -20,7 +20,13 @@ export interface LoanState {
 
 const MONTHLY_REPAYMENT_THRESHOLD = 2372.00;
 const REPAYMENT_PERCENTAGE = 0.09;
+const BASE_APR = 0.032;
+const SALARY_APR_BONUS_MAX = 0.03;
 
+/**
+ * NOTE: This function is currently obsolete as we are using a fixed interest rate input.
+ * It is kept here for future reference when we re-introduce salary-dependent interest logic.
+ */
 const getInterestRate = (salary: number): number => {
   if (salary <= 28470) {
     return 0.032;
@@ -37,6 +43,7 @@ const getInterestRate = (salary: number): number => {
 export function calculateLoanRepayments(
   initialBalance: number,
   remainingYears: number,
+  interestRate: number,
   salaryProjections: SalaryProjection[],
   lumpSumRepayments: LumpSumRepayment[]
 ): { history: LoanState[]; totalRepayments: number } {
@@ -63,8 +70,9 @@ export function calculateLoanRepayments(
       currentAnnualSalary = salaryMap.get(year)!;
     }
 
-    const annualInterestRate = getInterestRate(currentAnnualSalary);
+    const annualInterestRate = interestRate;
     const monthlyInterestRate = (1 + annualInterestRate)**(1/12) - 1;
+
 
     const monthlySalary = currentAnnualSalary / 12;
     const monthlyRepayment =
@@ -73,9 +81,10 @@ export function calculateLoanRepayments(
         : 0;
 
     // Apply lump sum repayments at the beginning of the year
-    const lumpSumForYear = lumpSumRepayments.find(l => l.year === year);
-    if (lumpSumForYear) {
-      const principalPaid = Math.min(balance, lumpSumForYear.amount);
+    const lumpSumsForYear = lumpSumRepayments.filter(l => l.year === year);
+    if (lumpSumsForYear.length > 0) {
+      const totalLumpSum = lumpSumsForYear.reduce((sum, l) => sum + l.amount, 0);
+      const principalPaid = Math.min(balance, totalLumpSum);
       balance -= principalPaid;
       totalRepayments += principalPaid;
     }
