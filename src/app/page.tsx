@@ -37,10 +37,12 @@ export default function Home() {
   const [salaryGrowthFactor, setSalaryGrowthFactor] = useState(DEFAULT_SALARY_GROWTH_FACTOR);
   const [remainingYears, setRemainingYears] = useState(DEFAULT_REMAINING_YEARS);
   const [interestRate, setInterestRate] = useState(DEFAULT_INTEREST_RATE);
+  const [isManualSalary, setIsManualSalary] = useState(false);
 
   const [salaryProjections, setSalaryProjections] = useState<SalaryProjection[]>([]);
 
   useEffect(() => {
+    if (isManualSalary) return;
     const projections: SalaryProjection[] = [
       { year: 1, salary: getSalaryForYear(1, startingSalary, salaryGrowthFactor) },
       { year: 2, salary: getSalaryForYear(2, startingSalary, salaryGrowthFactor) },
@@ -49,7 +51,7 @@ export default function Home() {
       { year: 16, salary: getSalaryForYear(16, startingSalary, salaryGrowthFactor) },
     ];
     setSalaryProjections(projections);
-  }, [startingSalary, salaryGrowthFactor]);
+  }, [startingSalary, salaryGrowthFactor, isManualSalary]);
 
   const [lumpSumRepayments, setLumpSumRepayments] = useState<LumpSumRepayment[]>(
     []
@@ -68,6 +70,47 @@ export default function Home() {
       ),
     [initialBalance, remainingYears, interestRate, salaryProjections, lumpSumRepayments]
   );
+
+  const baseline = useMemo(
+    () =>
+      calculateLoanRepayments(
+        initialBalance,
+        remainingYears,
+        interestRate,
+        salaryProjections,
+        []
+      ),
+    [initialBalance, remainingYears, interestRate, salaryProjections]
+  );
+
+  const lumpSumImpact = useMemo(() => {
+    if (lumpSumRepayments.length === 0) return null;
+
+    const savings = baseline.totalRepayments - totalRepayments;
+    const totalLumpSum = lumpSumRepayments.reduce((sum, l) => sum + l.amount, 0);
+    
+    // Calculate weighted average year of lump sum investment
+    const weightedSum = lumpSumRepayments.reduce((sum, l) => sum + (l.amount * l.year), 0);
+    const avgYear = weightedSum / totalLumpSum;
+
+    // Find the year the baseline loan was paid off (or the end of the term)
+    const baselineLastEntry = baseline.history[baseline.history.length - 1];
+    const finalYear = baselineLastEntry.year;
+
+    // Time horizon for ROI calculation
+    const yearsHeld = Math.max(1, finalYear - avgYear);
+
+    // CAGR = ((Total Value) / (Initial Investment)) ^ (1/Years) - 1
+    // Total Value = Savings + LumpSum (because Savings is the "profit" on top of the lump sum)
+    const cagr = Math.pow((savings + totalLumpSum) / totalLumpSum, 1 / yearsHeld) - 1;
+
+    return {
+      savings,
+      totalLumpSum,
+      cagr: cagr * 100, // as percentage
+      yearsHeld
+    };
+  }, [baseline, totalRepayments, lumpSumRepayments]);
 
   const handleSalaryChange = (index: number, year: number, salary: number) => {
     const newProjections = [...salaryProjections];
@@ -141,7 +184,7 @@ export default function Home() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Starting Salary: £{startingSalary.toLocaleString()}</label>
+              <label className={`block text-sm font-medium ${isManualSalary ? 'text-gray-400' : 'text-gray-700'}`}>Starting Salary: £{startingSalary.toLocaleString()}</label>
               <input
                 type="range"
                 min="20000"
@@ -149,12 +192,13 @@ export default function Home() {
                 step="1000"
                 value={startingSalary}
                 onChange={(e) => setStartingSalary(parseInt(e.target.value))}
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                disabled={isManualSalary}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Salary Growth Factor: {salaryGrowthFactor}x</label>
+              <label className={`block text-sm font-medium ${isManualSalary ? 'text-gray-400' : 'text-gray-700'}`}>Salary Growth Factor: {salaryGrowthFactor}x</label>
               <input
                 type="range"
                 min="1.0"
@@ -162,7 +206,8 @@ export default function Home() {
                 step="0.01"
                 value={salaryGrowthFactor}
                 onChange={(e) => setSalaryGrowthFactor(parseFloat(e.target.value))}
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                disabled={isManualSalary}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
 
@@ -193,7 +238,18 @@ export default function Home() {
             </div>
           </div>
 
-          <h3 className="text-xl font-medium mb-2">Manual Salary Projections</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-medium">Salary Projections</h3>
+            <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 cursor-pointer">
+              <input 
+                type="checkbox" 
+                checked={isManualSalary}
+                onChange={(e) => setIsManualSalary(e.target.checked)}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span>Manual</span>
+            </label>
+          </div>
           {salaryProjections.map((p, i) => (
             <div key={i} className="flex items-center gap-2 mb-2">
               <input
@@ -202,7 +258,12 @@ export default function Home() {
                 onChange={(e) =>
                   handleSalaryChange(i, parseInt(e.target.value) || 0, p.salary)
                 }
-                className="w-20 p-2 border rounded"
+                readOnly={!isManualSalary}
+                className={`w-20 p-2 rounded transition-colors ${
+                  isManualSalary 
+                    ? 'border border-blue-300 bg-white' 
+                    : 'border-none bg-gray-100 text-gray-500 cursor-default'
+                }`}
                 placeholder="Year"
               />
               <input
@@ -211,7 +272,12 @@ export default function Home() {
                 onChange={(e) =>
                   handleSalaryChange(i, p.year, parseInt(e.target.value) || 0)
                 }
-                className="w-32 p-2 border rounded"
+                readOnly={!isManualSalary}
+                className={`w-32 p-2 rounded transition-colors ${
+                  isManualSalary 
+                    ? 'border border-blue-300 bg-white' 
+                    : 'border-none bg-gray-100 text-gray-500 cursor-default'
+                }`}
                 placeholder="Salary"
               />
             </div>
@@ -286,6 +352,38 @@ export default function Home() {
               />
             </AreaChart>
           </ResponsiveContainer>
+
+          {lumpSumImpact && (
+            <div className="mt-8 p-6 bg-blue-50 rounded-lg border border-blue-100">
+              <h3 className="text-xl font-semibold text-blue-900 mb-4">Lump Sum Impact</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                  <p className="text-sm text-blue-700 font-medium">Total Lump Sums Paid</p>
+                  <p className="text-2xl font-bold text-blue-900">
+                    £{lumpSumImpact.totalLumpSum.toLocaleString()}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-blue-700 font-medium">Total Interest/Principal Saved</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    £{lumpSumImpact.savings.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-blue-700 font-medium">Annualized ROI (CAGR)</p>
+                  <p className="text-2xl font-bold text-blue-900">
+                    {lumpSumImpact.cagr.toFixed(2)}%
+                  </p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    Over approx. {lumpSumImpact.yearsHeld.toFixed(1)} years
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
         
       </div>
