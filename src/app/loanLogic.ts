@@ -84,9 +84,16 @@ export function calculateLoanRepayments(
     const lumpSumsForYear = lumpSumRepayments.filter(l => l.year === year);
     if (lumpSumsForYear.length > 0) {
       const totalLumpSum = lumpSumsForYear.reduce((sum, l) => sum + l.amount, 0);
-      const principalPaid = Math.min(balance, totalLumpSum);
-      balance -= principalPaid;
-      totalRepayments += principalPaid;
+      const actualPaid = Math.min(balance, totalLumpSum);
+      balance -= actualPaid;
+      totalRepayments += actualPaid;
+      
+      // If this happens in year 1 before any months, update the year 0 balance 
+      // or ensure the first month reflects it.
+      if (year === 1 && history.length === 1) {
+        history[0].balance = balance;
+        history[0].totalRepayments = actualPaid;
+      }
     }
 
     for (let month = 1; month <= 12; month++) {

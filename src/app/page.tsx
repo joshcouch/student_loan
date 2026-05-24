@@ -118,11 +118,31 @@ export default function Home() {
 
   const handleAddLumpSum = () => {
     if (lumpSumAmount > 0) {
-      setLumpSumRepayments([
-        ...lumpSumRepayments,
-        { year: lumpSumYear, amount: lumpSumAmount },
-      ]);
-      setLumpSumAmount(0);
+      // Find the balance at the start of the year (end of previous year)
+      const prevYearData = history.find(h => h.year === lumpSumYear - 1 && h.month === 12) 
+        || (lumpSumYear === 1 ? history[0] : history[history.length - 1]);
+      
+      const currentBalanceAtYear = prevYearData?.balance || 0;
+      
+      // Calculate total lump sums already planned for this year
+      const existingLumpSumsForYear = lumpSumRepayments
+        .filter(l => l.year === lumpSumYear)
+        .reduce((sum, l) => sum + l.amount, 0);
+
+      const maxAllowed = Math.max(0, currentBalanceAtYear - existingLumpSumsForYear);
+      const actualAmountToAdd = Math.min(lumpSumAmount, maxAllowed);
+
+      if (actualAmountToAdd > 0) {
+        setLumpSumRepayments([
+          ...lumpSumRepayments,
+          { year: lumpSumYear, amount: actualAmountToAdd },
+        ]);
+        setLumpSumAmount(0);
+      } else if (maxAllowed <= 0) {
+        alert("The loan is already projected to be paid off by this year.");
+      } else if (lumpSumAmount > maxAllowed) {
+        alert(`Lump sum capped at £${maxAllowed.toLocaleString()} (remaining balance at Year ${lumpSumYear})`);
+      }
     }
   };
 
