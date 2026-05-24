@@ -29,12 +29,12 @@ const SALARY_APR_BONUS_MAX = 0.03;
  */
 const getInterestRate = (salary: number): number => {
   if (salary <= 28470) {
-    return 0.032;
+    return BASE_APR;
   } else if (salary > 28470 && salary <= 51245) {
     const excess = salary - 28470;
     const range = 51245 - 28470;
-    const additionalInterest = (excess / range) * 0.03;
-    return 0.032 + additionalInterest;
+    const additionalInterest = (excess / range) * SALARY_APR_BONUS_MAX;
+    return BASE_APR + additionalInterest;
   } else {
     return 0.062;
   }
