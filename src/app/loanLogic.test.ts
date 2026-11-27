@@ -2,7 +2,7 @@ import { calculateLoanRepayments, SalaryProjection } from "./loanLogic";
 
 describe("calculateLoanRepayments", () => {
   test("yields expected total payments for specific years with given parameters", () => {
-    const initialBalance = 64621.38;
+    const initialBalance = 50000;
     const remainingYears = 30;
     const interestRate = 0.062; // 3.2% RPI + 3% (since salary is high)
     const startingSalary = 50000;

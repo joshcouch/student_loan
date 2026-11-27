@@ -16,7 +16,7 @@ import {
   LumpSumRepayment,
 } from "./loanLogic";
 
-const DEFAULT_INITIAL_LOAN_BALANCE = 64621.38;
+const DEFAULT_INITIAL_LOAN_BALANCE = 50000;
 const DEFAULT_STARTING_SALARY = 50000;
 const DEFAULT_SALARY_GROWTH_FACTOR = 1.2;
 const DEFAULT_REMAINING_YEARS = 30;
@@ -139,7 +139,7 @@ export default function Home() {
         ]);
         setLumpSumAmount(0);
       } else if (maxAllowed <= 0) {
-        alert("The loan is already projected to be paid off by this year.");
+        alert("Lump sum payment exceeds current loan balance.");
       } else if (lumpSumAmount > maxAllowed) {
         alert(`Lump sum capped at £${maxAllowed.toLocaleString()} (remaining balance at Year ${lumpSumYear})`);
       }
