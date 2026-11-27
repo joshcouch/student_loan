@@ -11,7 +11,7 @@ Below is a quick and dirty demo video made with Trupeer. Not bad for a one-pass!
 
 ![UK Student Loan Calculator Demo](media/screenshot.png)
 
-Watch the full walkthrough on [Trupeer](https://app.trupeer.ai/view/EnITmp5Jb/uk-student-loan-repayment-calculator) or download the [MP4 demo](media/demo.mp4) (the lagginess is due to my slow chromebook, not an issue with trupeer).
+Watch the full walkthrough on [Trupeer](https://app.trupeer.ai/view/EnITmp5Jb/uk-student-loan-repayment-calculator) or on [Google Drive](https://drive.google.com/file/d/1PiGmNqNgZQfh1rSRmsXkAPkj2YiCfJDw/view?usp=sharing) (the lagginess is due to my slow chromebook, not an issue with trupeer).
 
 ---
 
